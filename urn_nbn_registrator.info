@@ -1,0 +1,5 @@
+; $Id: viewhooker Exp $
+name = urn_nbn_registrator
+description = URN:NBN registrator
+core = 6.x
+package = custom

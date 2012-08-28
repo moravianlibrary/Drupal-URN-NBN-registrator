@@ -1,0 +1,267 @@
+<?php
+
+/*
+ * Menu
+ */
+function urn_nbn_registrator_menu() {
+  $items = array();
+  $items['admin/settings/urn_nbn_registrator'] = array(
+    'title' => 'URN:NBN registrator settings',
+    'description' => 'URN:NBN registrator settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('urn_nbn_registrator_admin'),
+    'access arguments' => array('administer URN:NBN registrator'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/*
+ * Permissions
+ */
+function urn_nbn_registrator_perm() {
+  return array('administer URN:NBN registrator');
+}
+
+/*
+ *  Configuration
+ */
+function urn_nbn_registrator_config($key) {
+  $default_values = array(
+    'urn_nbn_registrator_username' => 'username',
+    'urn_nbn_registrator_password' => 'password',
+    'urn_nbn_registrator_domain' => 'resolver-test.nkp.cz',
+    'urn_nbn_registrator_registrator' => 'registrator',
+    'urn_nbn_registrator_size' => 25,
+    'urn_nbn_registrator_reservations' => 25,
+    'urn_nbn_registrator_field_name' => 'urn_nbn',
+    'urn_nbn_registrator_views' => '',
+    'urn_nbn_registrator_logging' => TRUE,
+  );
+  return variable_get($key, $default_values[$key]);
+}
+
+/*
+ * Configuration form
+ */
+function urn_nbn_registrator_admin() {
+  $form = array();
+
+  $form['urn_nbn_registrator_settings'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('URN:NBN registrator settings'),
+    '#weight'      => -10,
+    '#collapsible' => FALSE,
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_username'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Username'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_username'),
+    '#description'   => t('Username for the resolver'),
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_password'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Password'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_password'),
+    '#description'   => t('Password for the resolver'),
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_domain'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Domain'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_domain'),
+    '#description'   => t('Domain of the registrator web service (resolver.nkp.cz for production, resolver-test.nkp.cz for testing)'),
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_registrator'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Registrator'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_registrator'),
+    '#description'   => t('Identifier of the registrator in the resolver'),
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_size'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Fetch Size'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_size'),
+    '#description'   => t('Number of URN:NBN to fetch at once'),
+    '#element_validate' => array('urn_nbn_registrator_is_integer'),
+    '#required' => TRUE,
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_reservations'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Number of reservations'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_reservations'),
+    '#description'   => t('Minimal number of reserved URN:NBNs, when below, new URN:NBNs are reserved'),
+    '#element_validate' => array('urn_nbn_registrator_is_integer'),
+    '#required' => TRUE,
+  );
+  
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_field_name'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Name of the field with URN:NBN'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_field_name'),
+    '#description'   => t('Name of the field with URN:NBN.'),
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_views'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Views'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_views'),
+    '#description'   => t('List of views separated by comma (,), each node in a view is assigned URN:NBN periodically by cron.'),
+    '#element_validate' => array('urn_nbn_registrator_views_validate'),
+  );
+
+  $form['urn_nbn_registrator_settings']['urn_nbn_registrator_logging'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Enable logging'),
+    '#default_value' => urn_nbn_registrator_config('urn_nbn_registrator_logging'),
+    '#description'   => t('Enable logging.'),
+    '#element_validate' => array('urn_nbn_registrator_views_validate'),
+  );
+
+  return system_settings_form($form);
+}
+
+/*
+ * Functions validating the urn_nbn_registrator_admin form
+ */
+function urn_nbn_registrator_views_validate($element, &$form_state) {
+  if (!empty($element['#value'])) {
+    $views = explode(',', $element['#value']);
+    foreach ($views as $view_name) {
+      $view = views_get_view($view_name);
+      if (!$view) {
+        form_error($element, t('View @view does not exists.', array("@view" => $view_name)));
+      }
+    }
+  } 
+}
+
+function urn_nbn_registrator_is_integer($element, &$form_state) {
+  print $element['#value'] . "<BR>";
+  if (!is_numeric($element['#value'])) {
+    form_error($element, t('Value is not integer'));
+  }
+}
+
+/*
+ * Fetch the reservations of the URN:NBN from the resolver and store them in DB
+ */
+function urn_nbn_registrator_fetch_reservations() {
+  $headers = array();
+  $user = urn_nbn_registrator_config('urn_nbn_registrator_username');
+  $password = urn_nbn_registrator_config('urn_nbn_registrator_password');
+  $domain = urn_nbn_registrator_config('urn_nbn_registrator_domain');
+  $registrars = urn_nbn_registrator_config('urn_nbn_registrator_registrator');
+  $size = urn_nbn_registrator_config('urn_nbn_registrator_size');
+  $url = "https://$user:$password" . "@" . "$domain/api/v2/registrars/$registrars/urnNbnReservations?size=$size";
+  $result = drupal_http_request($url, $headers, "POST");
+  urn_nbn_registrator_log(t("Fetching new URN:NBNs from URL: @url"), array("@url" => $url), WATCHDOG_NOTICE);
+  $xml = simplexml_load_string($result->data);
+  foreach($xml->urnNbn as $urn) {
+    $entry = array('id' => $urn);
+    drupal_write_record('urn_nbn_registrator_reservations', $entry);
+  }
+}
+
+/*
+ * Fetch and remove one URN:NBN from db
+ */
+function urn_nbn_registrator_fetch_from_db() {
+  $query = db_query("SELECT id FROM {urn_nbn_registrator_reservations} LIMIT 1;");
+  $row = db_fetch_array($query);
+  if ($row) {
+    $id = $row['id'];
+    db_query("DELETE FROM {urn_nbn_registrator_reservations} WHERE id = '%s'", $id);
+    return $id;
+  } else {
+    return false;
+  }
+}
+
+/*
+ * Fetch and remove one URN:NBN from db and if table with URN:NBN is empty, reserve new URN:NBNs
+ */
+function urn_nbn_registrator_fetch() {
+  $id = urn_nbn_registrator_fetch_from_db();
+  if ($id) {
+    return $id;
+  } else {
+    urn_nbn_registrator_fetch_reservations();
+    return urn_nbn_registrator_fetch_from_db();
+  }
+}
+
+/*
+ * Assign node a URN:NBN
+ */
+function urn_nbn_registrator_assign($node) {
+  $field_name = "field_" . urn_nbn_registrator_config('urn_nbn_registrator_field_name');
+  $urn_nbn = $node->$field_name;
+  if ($urn_nbn[0]['value'] == NULL) {
+    $id = urn_nbn_registrator_fetch();
+    if ($id) {
+      $urn_nbn[0]['value'] = $id;
+      $node->$field_name = $urn_nbn;
+      node_save($node);
+      urn_nbn_registrator_log("Node @id has URN:NBN @urn_nbn", array("@id" => $node->nid, "@urn_nbn" => $id), WATCHDOG_NOTICE);
+      return true;
+    } else {
+      return false;
+    }
+  }
+}
+
+/*
+ * Assign URN:NBN to all nodes
+ */
+function urn_nbn_registrator_run() {
+  $views = urn_nbn_registrator_config('urn_nbn_registrator_views');
+  foreach (explode(',', $views) as $view_name) {
+    $view = views_get_view($view_name);
+    $view->preview();
+    foreach ($view->result as $result) {
+      $nid = $result->nid;
+      $node = node_load($nid, NULL, true);
+      urn_nbn_registrator_assign($node);
+    }
+  }
+}
+
+/*
+ * Check if reservations of URN:NBN are below configurable limit and if so, reserve new URN:NBNs
+ */
+function urn_nbn_registrator_check_reservations() {
+  // reservations
+  $query = db_query("SELECT COUNT(id) AS count FROM {urn_nbn_registrator_reservations};");
+  $row = db_fetch_array($query);
+  if ($row) {
+    $count = $row['count'];
+    $reservations = urn_nbn_registrator_config('urn_nbn_registrator_reservations');
+    if ($count < $reservations) {
+      urn_nbn_registrator_fetch_reservations();
+    }
+  }
+}
+
+function urn_nbn_registrator_log($message, $variables, $level) {
+  $logging = urn_nbn_registrator_config('urn_nbn_registrator_logging');
+  if ($logging) {
+    watchdog("urn_nbn_registrator", $message, $variables, $level);
+  }
+}
+
+/*
+ * Cron job
+ */
+function urn_nbn_registrator_cron() {
+  urn_nbn_registrator_log(t('Cron executed for URN:NBN registrator'), array(), WATCHDOG_NOTICE);
+  urn_nbn_registrator_check_reservations();
+  urn_nbn_registrator_run();
+}
+
+?>
